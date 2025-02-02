@@ -1,2 +1,3 @@
 flask
 faster_whisper
+tokenizers==0.20.3
