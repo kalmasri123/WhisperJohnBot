@@ -5,17 +5,17 @@ import base64
 from faster_whisper import WhisperModel
 from flask import request, Flask
 import uuid
-
+import wave
 executor = ThreadPoolExecutor(max_workers=10)
 model_size = "small.en"
-device = os.environ.get("DEVICE","cpu")
+device = os.environ.get("DEVICE", "cpu")
 # Run on GPU with FP16
 # model = WhisperModel(model_size, device="cpu", compute_type="float32")
 
 # or run on GPU with INT8
 # model = WhisperModel(model_size, device="cuda", compute_type="int8_float16")
 # or run on CPU with INT8
-model = WhisperModel(model_size, device=device, compute_type="float32")
+model = WhisperModel(model_size, device=device, compute_type="int8")
 
 # segments, info = model.transcribe("audio.mp3", beam_size=5)
 # start_time = time.time()
@@ -38,16 +38,19 @@ def create_app(test_config=None):
     def transcribe():
         def _transcribe(audio, userId):
             file_name = f"{userId}-{str(uuid.uuid4())}.wav"
-            f = open(f"{file_name}", "wb")
-            f.write(base64.b64decode(audio))
+            f = wave.open(f"{file_name}", "wb")
+            f.setparams((2, 2, 48000, 0, 'NONE', 'NONE'))
+            f.writeframes(base64.b64decode(audio))
+            # f.write()
             f.close()
             segments, info = model.transcribe(
                 f"{file_name}", beam_size=5)
             segment_list = list(segments)
             print(segment_list)
             return segment_list
-        
-        job = executor.submit(_transcribe,request.json['audio'],request.json['userId'])
+
+        job = executor.submit(
+            _transcribe, request.json['audio'], request.json['userId'])
         result = job.result()
         result = result[0].text if len(result) > 0 else ""
         return result
